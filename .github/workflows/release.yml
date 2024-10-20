@@ -21,13 +21,63 @@ jobs:
         cmake -B ${{github.workspace}}/build-x64 -A x64 -DCMAKE_BUILD_TYPE=Release
         cmake --build ${{github.workspace}}/build-x64 --config Release
 
+    - name: Check build outputs
+      run: |
+        if (!(Test-Path "${{github.workspace}}\build-x86\Release\*.lib")) {
+          Write-Error "x86 build outputs not found"
+          exit 1
+        }
+        if (!(Test-Path "${{github.workspace}}\build-x64\Release\*.lib")) {
+          Write-Error "x64 build outputs not found"
+          exit 1
+        }
+
     - name: Package
       run: |
-        mkdir release-package
-        copy ${{github.workspace}}\build-x86\Release\*.lib release-package\x86\
-        copy ${{github.workspace}}\build-x86\Release\*.dll release-package\x86\
-        copy ${{github.workspace}}\build-x64\Release\*.lib release-package\x64\
-        copy ${{github.workspace}}\build-x64\Release\*.dll release-package\x64\
+        # 创建主目录
+        New-Item -ItemType Directory -Force -Path "release-package"
+        
+        # 创建 x86 和 x64 子目录
+        New-Item -ItemType Directory -Force -Path "release-package\x86"
+        New-Item -ItemType Directory -Force -Path "release-package\x64"
+        
+        # 复制 x86 文件
+        $x86LibPath = "${{github.workspace}}\build-x86\Release\*.lib"
+        $x86DllPath = "${{github.workspace}}\build-x86\Release\*.dll"
+        if (Test-Path $x86LibPath) {
+            Copy-Item -Path $x86LibPath -Destination "release-package\x86\" -Force
+        } else {
+            Write-Warning "No x86 .lib files found"
+        }
+        if (Test-Path $x86DllPath) {
+            Copy-Item -Path $x86DllPath -Destination "release-package\x86\" -Force
+        } else {
+            Write-Warning "No x86 .dll files found"
+        }
+        
+        # 复制 x64 文件
+        $x64LibPath = "${{github.workspace}}\build-x64\Release\*.lib"
+        $x64DllPath = "${{github.workspace}}\build-x64\Release\*.dll"
+        if (Test-Path $x64LibPath) {
+            Copy-Item -Path $x64LibPath -Destination "release-package\x64\" -Force
+        } else {
+            Write-Warning "No x64 .lib files found"
+        }
+        if (Test-Path $x64DllPath) {
+            Copy-Item -Path $x64DllPath -Destination "release-package\x64\" -Force
+        } else {
+            Write-Warning "No x64 .dll files found"
+        }
+        
+        # 列出创建的目录结构
+        Get-ChildItem -Recurse release-package
+        
+        # 创建 zip 文件
+        Compress-Archive -Path "release-package" -DestinationPath "release-package.zip" -Force
+
+    - name: Get version
+      id: get_version
+      run: echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
 
     - name: Create Release
       id: create_release
@@ -35,8 +85,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
+        tag_name: ${{ steps.get_version.outputs.VERSION }}
+        release_name: Release ${{ steps.get_version.outputs.VERSION }}
         draft: false
         prerelease: false
 
