@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: CMake CI/CD
 
 on:
   push:
@@ -7,35 +7,39 @@ on:
     branches: [ main ]
 
 jobs:
-  build-and-test:
-    runs-on: ubuntu-latest
-    
+  build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        arch: [x86, x64]
+        build_type: [Release]
+
     steps:
-    # 检出代码
     - uses: actions/checkout@v3
-    
-    # 设置 Node.js 环境
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
+
+    - name: Configure CMake
+      run: |
+        if ("${{ matrix.arch }}" -eq "x86") {
+          cmake -B ${{github.workspace}}/build -A Win32 -DCMAKE_BUILD_TYPE=${{matrix.build_type}}
+        } else {
+          cmake -B ${{github.workspace}}/build -A x64 -DCMAKE_BUILD_TYPE=${{matrix.build_type}}
+        }
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --config ${{matrix.build_type}}
+
+    - name: Test
+      working-directory: ${{github.workspace}}/build
+      run: ctest -C ${{matrix.build_type}}
+
+    - name: Package
+      run: |
+        mkdir artifacts
+        copy ${{github.workspace}}\build\${{matrix.build_type}}\*.lib artifacts\
+        copy ${{github.workspace}}\build\${{matrix.build_type}}\*.dll artifacts\
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
       with:
-        node-version: '16'  # 使用适合您项目的 Node.js 版本
-    
-    # 安装依赖
-    - name: Install dependencies
-      run: npm ci
-    
-    # 运行测试（如果有的话）
-    - name: Run tests
-      run: npm test
-    
-    # 构建项目
-    - name: Build project
-      run: npm run build
-    
-    # 部署到 GitHub Pages（如果适用）
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
-      if: github.ref == 'refs/heads/main'
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./build  # 替换为您的构建输出目录
+        name: windows-${{ matrix.arch }}-libs
+        path: artifacts\
