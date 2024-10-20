@@ -1,0 +1,36 @@
+cmake_minimum_required(VERSION 3.10)
+
+project(MathLib VERSION 1.2.3)
+
+# 配置版本头文件
+configure_file(version.h.in ${CMAKE_BINARY_DIR}/generated/version.h)
+
+# 设置 C++ 标准
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# 添加包含目录
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+include_directories(${CMAKE_BINARY_DIR}/generated)
+
+# 创建动态库
+add_library(math_lib_shared SHARED src/math_lib.cpp)
+set_target_properties(math_lib_shared PROPERTIES
+    OUTPUT_NAME "math_lib"
+    VERSION ${PROJECT_VERSION}
+    SOVERSION ${PROJECT_VERSION_MAJOR}
+)
+target_compile_definitions(math_lib_shared PRIVATE MATH_LIB_EXPORTS)
+
+# 创建静态库
+add_library(math_lib_static STATIC src/math_lib.cpp)
+set_target_properties(math_lib_static PROPERTIES OUTPUT_NAME "math_lib")
+
+# 安装规则
+install(TARGETS math_lib_shared math_lib_static
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+)
+install(FILES include/math_lib.h ${CMAKE_BINARY_DIR}/generated/version.h
+    DESTINATION include
+)
