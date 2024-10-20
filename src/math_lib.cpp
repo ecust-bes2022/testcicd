@@ -5,12 +5,12 @@
 namespace math_lib {
 
 int add(int a, int b) {
-    std::cout<<"add"<<std::endl;
+    std::cout<<"add func"<<std::endl;
     return a + b;
 }
 
 int subtract(int a, int b) {
-    std::cout<<"subtract"<<std::endl;
+    std::cout<<"subtract func"<<std::endl;
     return a - b;
 }
 
