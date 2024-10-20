@@ -6,14 +6,46 @@ on:
       - 'v*'
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  release:
+    runs-on: windows-latest
     steps:
     - uses: actions/checkout@v3
+
+    - name: Build x86
+      run: |
+        cmake -B ${{github.workspace}}/build-x86 -A Win32 -DCMAKE_BUILD_TYPE=Release
+        cmake --build ${{github.workspace}}/build-x86 --config Release
+
+    - name: Build x64
+      run: |
+        cmake -B ${{github.workspace}}/build-x64 -A x64 -DCMAKE_BUILD_TYPE=Release
+        cmake --build ${{github.workspace}}/build-x64 --config Release
+
+    - name: Package
+      run: |
+        mkdir release-package
+        copy ${{github.workspace}}\build-x86\Release\*.lib release-package\x86\
+        copy ${{github.workspace}}\build-x86\Release\*.dll release-package\x86\
+        copy ${{github.workspace}}\build-x64\Release\*.lib release-package\x64\
+        copy ${{github.workspace}}\build-x64\Release\*.dll release-package\x64\
+
     - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        gh release create ${{ github.ref }} \
-            --title "Release ${{ github.ref }}" \
-            --generate-notes
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./release-package.zip
+        asset_name: windows-libs.zip
+        asset_content_type: application/zip
