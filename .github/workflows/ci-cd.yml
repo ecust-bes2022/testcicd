@@ -1,0 +1,45 @@
+name: CMake CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        arch: [x86, x64]
+        build_type: [Release]
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Configure CMake
+      run: |
+        if ("${{ matrix.arch }}" -eq "x86") {
+          cmake -B ${{github.workspace}}/build -A Win32 -DCMAKE_BUILD_TYPE=${{matrix.build_type}}
+        } else {
+          cmake -B ${{github.workspace}}/build -A x64 -DCMAKE_BUILD_TYPE=${{matrix.build_type}}
+        }
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --config ${{matrix.build_type}}
+
+    - name: Test
+      working-directory: ${{github.workspace}}/build
+      run: ctest -C ${{matrix.build_type}}
+
+    - name: Package
+      run: |
+        mkdir artifacts
+        copy ${{github.workspace}}\build\${{matrix.build_type}}\*.lib artifacts\
+        copy ${{github.workspace}}\build\${{matrix.build_type}}\*.dll artifacts\
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: windows-${{ matrix.arch }}-libs
+        path: artifacts\
