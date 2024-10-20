@@ -1,5 +1,6 @@
 #include "math_lib.h"
 #include <cstring>
+#include<iostream>
 
 namespace math_lib {
 
