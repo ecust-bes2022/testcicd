@@ -77,30 +77,32 @@ jobs:
         echo "GitHub Actor: ${{ github.actor }}"
         echo "GitHub Repository: ${{ github.repository }}"
 
-    - name: Create Release
+    - name: Create Release and Upload Asset
       uses: actions/github-script@v6
       with:
+        github-token: ${{secrets.GITHUB_TOKEN}}
         script: |
-          try {
-            const response = await github.rest.repos.createRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: context.ref.replace('refs/tags/', ''),
-              name: `Release ${context.ref.replace('refs/tags/', '')}`,
-              draft: false,
-              prerelease: false
-            });
-            console.log(`Release created: ${response.data.html_url}`);
-          } catch (error) {
-            core.setFailed(error.message);
-          }
-
-    - name: Upload Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./release-package.zip
-        asset_name: windows-libs.zip
-        asset_content_type: application/zip
+          const fs = require('fs').promises;
+          const { repo: { owner, repo }, sha } = context;
+          
+          console.log('Creating release...');
+          const release = await github.rest.repos.createRelease({
+            owner,
+            repo,
+            tag_name: process.env.GITHUB_REF.replace('refs/tags/', ''),
+            name: `Release ${process.env.GITHUB_REF.replace('refs/tags/', '')}`,
+            draft: false,
+            prerelease: false
+          });
+          
+          console.log('Uploading release asset...');
+          const asset = await github.rest.repos.uploadReleaseAsset({
+            owner,
+            repo,
+            release_id: release.data.id,
+            name: 'windows-libs.zip',
+            data: await fs.readFile('./release-package.zip')
+          });
+          
+          console.log(`Release created: ${release.data.html_url}`);
+          console.log(`Asset uploaded: ${asset.data.browser_download_url}`);
